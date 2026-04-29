@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Haus-Suche Kanban</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f7f7f5;
+    color: #1a1a1a;
+    margin: 0;
+    padding: 16px;
+    font-size: 14px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .subtitle { color: #666; font-size: 12px; margin-bottom: 14px; line-height: 1.5; }
+  .stats { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat { background: white; padding: 6px 12px; border-radius: 6px; border: 1px solid #e5e5e5; min-width: 80px; }
+  .stat-num { font-weight: 700; font-size: 16px; line-height: 1.1; }
+  .stat-lbl { color: #777; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(250px, 1fr));
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .col {
+    background: #ececea;
+    border-radius: 10px;
+    padding: 10px;
+    min-height: 220px;
+  }
+  .col-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 6px 8px;
+    font-weight: 600;
+    font-size: 12.5px;
+    border-bottom: 2px solid;
+    margin-bottom: 10px;
+  }
+  .col-count { background: white; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #555; }
+  .col[data-status="interessant"] .col-header { border-color: #3b82f6; color: #1d4ed8; }
+  .col[data-status="angefragt"]   .col-header { border-color: #f59e0b; color: #b45309; }
+  .col[data-status="geplant"]     .col-header { border-color: #8b5cf6; color: #6d28d9; }
+  .col[data-status="besichtigt"]  .col-header { border-color: #10b981; color: #047857; }
+  .col[data-status="verworfen"]   .col-header { border-color: #94a3b8; color: #475569; }
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-left: 3px solid #ccc;
+  }
+  .card[data-status="interessant"] { border-left-color: #3b82f6; }
+  .card[data-status="angefragt"]   { border-left-color: #f59e0b; }
+  .card[data-status="geplant"]     { border-left-color: #8b5cf6; }
+  .card[data-status="besichtigt"]  { border-left-color: #10b981; }
+  .card[data-status="verworfen"]   { border-left-color: #94a3b8; opacity: 0.75; }
+
+  .card-title { font-weight: 600; font-size: 13.5px; margin-bottom: 2px; line-height: 1.3; }
+  .card-type { font-size: 11.5px; color: #555; margin-bottom: 6px; line-height: 1.3; font-style: italic; }
+  .price { font-weight: 700; font-size: 14px; color: #047857; margin-bottom: 6px; }
+  .price.unknown { color: #aaa; font-weight: 500; font-style: italic; }
+  .price-sub { font-size: 10.5px; color: #888; font-weight: 400; margin-left: 6px; }
+  .metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; font-size: 11.5px; color: #444; }
+  .metrics span { white-space: nowrap; }
+  .metrics .icon { color: #999; margin-right: 3px; }
+  .field { font-size: 11.5px; color: #444; margin-bottom: 3px; }
+  .field-label { color: #888; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; margin-right: 3px; }
+  .energy-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10.5px; margin-right: 4px; }
+  .energy-A { background: #16a34a; color: white; }
+  .energy-B { background: #65a30d; color: white; }
+  .energy-C { background: #ca8a04; color: white; }
+  .energy-D { background: #ea580c; color: white; }
+  .energy-E { background: #dc2626; color: white; }
+  .energy-F { background: #b91c1c; color: white; }
+  .energy-G { background: #7f1d1d; color: white; }
+  .energy-H { background: #450a0a; color: white; }
+  .estimate { color: #888; font-size: 10.5px; font-style: italic; }
+  .notes { font-size: 11.5px; background: #fff8e1; padding: 7px 9px; border-radius: 5px; border-left: 2px solid #f59e0b; margin-top: 8px; line-height: 1.45; color: #4a3a00; }
+  .link { display: inline-block; font-size: 11.5px; color: #2563eb; text-decoration: none; margin-top: 6px; }
+  .link:hover { text-decoration: underline; }
+  .link.disabled { color: #b0b0b0; font-style: italic; }
+  .missing { color: #c2410c; font-style: italic; font-size: 11.5px; }
+  .empty { color: #999; font-size: 12px; text-align: center; padding: 18px 8px; font-style: italic; }
+  .footer { margin-top: 16px; padding: 10px 12px; background: white; border-radius: 8px; border: 1px solid #e5e5e5; font-size: 11.5px; color: #555; line-height: 1.5; }
+  .footer strong { color: #333; }
+</style>
+</head>
+<body>
+<h1>Haus-Suche Kanban</h1>
+<div class="subtitle">Übersicht der aktuell angefragten Häuser. Öffentliche Ansicht — wird täglich aktualisiert.</div>
+
+<div class="stats" id="stats"></div>
+<div class="board" id="board"></div>
+
+<div class="footer">
+  <strong>Hinweis:</strong> Felder mit <span class="missing">"offen"</span> sind aktuell unbekannt.
+</div>
+
+<script>
+const COLUMNS = [
+  { key: 'interessant', label: 'Interessant' },
+  { key: 'angefragt',   label: 'Anfrage gesendet' },
+  { key: 'geplant',     label: 'Besichtigung geplant' },
+  { key: 'besichtigt',  label: 'Besichtigt' },
+  { key: 'verworfen',   label: 'Verworfen' }
+];
+
+const HOUSES = [
+  {
+    id: 'h001',
+    address: 'Niederndodeleber Str. 14a, 39110 Magdeburg-Diesdorf',
+    type: null,
+    status: 'angefragt',
+    link: 'https://www.immobilienscout24.de/expose/166935679',
+    price: 460000,
+    pricePerSqm: 2584,
+    livingArea: 178,
+    plotArea: 903,
+    rooms: 5,
+    yearBuilt: 1993,
+    energyClass: 'E',
+    energyEstimated: true,
+    basement: 'Voll unterkellert',
+    contact: 'Wohntraum Immobilien',
+    notes: 'Besichtigung angefragt — aktuell Streit zwischen Mieter und Vermieter, Makler meldet sich wieder.'
+  },
+  {
+    id: 'h002',
+    address: 'Bienenweg 16, 39120 Magdeburg-Hopfengarten',
+    type: 'Doppelhaushälfte mit Einliegerwohnung & Wintergarten',
+    status: 'geplant',
+    link: 'https://www.immobilienscout24.de/expose/167127431',
+    price: 399700,
+    pricePerSqm: 2002,
+    livingArea: 199.63,
+    plotArea: 772,
+    rooms: 8,
+    yearBuilt: 1938,
+    energyClass: 'D',
+    energyEstimated: false,
+    basement: 'Teilunterkellert',
+    contact: 'CENTURY 21 Regiomakler',
+    notes: 'Besichtigung am Donnerstag, 30.04.2026 um 16:30 Uhr.'
+  },
+  {
+    id: 'h003',
+    address: 'Ottersleben, 39116 Magdeburg (Straße folgt vom Anbieter)',
+    type: null,
+    status: 'angefragt',
+    link: 'https://www.immobilienscout24.de/expose/162840704',
+    price: 199000,
+    priceOld: 259999,
+    pricePerSqm: 1531,
+    livingArea: 130,
+    plotArea: 519,
+    rooms: 6,
+    yearBuilt: 1983,
+    energyClass: 'F',
+    energyEstimated: true,
+    basement: null,
+    contact: 'PlanetHome Group GmbH',
+    notes: 'Anfrage am 17.04.2026 gesendet — bisher keine Antwort. Preis von 259.999 € auf 199.000 € reduziert (−23 %).'
+  },
+  {
+    id: 'h004',
+    address: 'Junoweg 56, 39118 Magdeburg-Reform',
+    type: 'Einfamilienhaus',
+    status: 'besichtigt',
+    link: null,
+    linkNote: 'Inserat offline',
+    price: 355000,
+    pricePerSqm: 2863,
+    livingArea: 124,
+    plotArea: 456,
+    rooms: 5,
+    yearBuilt: 1997,
+    energyClass: 'D',
+    energyEstimated: false,
+    basement: 'Voll unterkellert',
+    contact: 'ImmFairKauf',
+    notes: 'Besichtigt am 08.04.2026. Angebot über 355.000 € am 10.04.2026 abgegeben — Antwort des Maklers steht aus (seit 18 Tagen).'
+  }
+];
+
+function fmtPrice(v) {
+  if (v === null || v === undefined) return null;
+  return Number(v).toLocaleString('de-DE') + ' €';
+}
+function fmtNum(v) {
+  if (v === null || v === undefined) return null;
+  return Number(v).toLocaleString('de-DE', { maximumFractionDigits: 2 });
+}
+
+function renderCard(h) {
+  const price = fmtPrice(h.price);
+  const ppsqm = h.pricePerSqm ? `<span class="price-sub">${h.pricePerSqm.toLocaleString('de-DE')} €/m²</span>` : '';
+
+  const metrics = [];
+  if (h.livingArea) metrics.push(`<span><span class="icon">⌂</span>${fmtNum(h.livingArea)} m² Wohn.</span>`);
+  if (h.plotArea)   metrics.push(`<span><span class="icon">▢</span>${fmtNum(h.plotArea)} m² Grund.</span>`);
+  if (h.rooms)      metrics.push(`<span><span class="icon">⊞</span>${h.rooms} Zi.</span>`);
+  if (h.yearBuilt)  metrics.push(`<span><span class="icon">⟳</span>BJ ${h.yearBuilt}</span>`);
+
+  let energyLine = '';
+  if (h.energyClass) {
+    const badge = `<span class="energy-badge energy-${h.energyClass}">${h.energyClass}</span>`;
+    const est = h.energyEstimated ? '<span class="estimate">geschätzt</span>' : '';
+    energyLine = `<div class="field"><span class="field-label">Energie</span>${badge}${est}</div>`;
+  }
+
+  const basementLine = h.basement
+    ? `<div class="field"><span class="field-label">Keller</span>${h.basement}</div>`
+    : '';
+
+  const typeLine = h.type
+    ? `<div class="card-type">${h.type}</div>`
+    : '';
+
+  const missingDetails = [];
+  if (!h.type)         missingDetails.push('Typ');
+  if (!h.yearBuilt)    missingDetails.push('Baujahr');
+  if (!h.energyClass)  missingDetails.push('Energieklasse');
+  if (!h.basement)     missingDetails.push('Keller');
+  const missingHint = missingDetails.length
+    ? `<div class="field"><span class="missing">offen: ${missingDetails.join(', ')}</span></div>`
+    : '';
+
+  let linkHtml;
+  if (h.link) {
+    linkHtml = `<a class="link" href="${h.link}" target="_blank" rel="noreferrer">Inserat öffnen ↗</a>`;
+  } else if (h.linkNote) {
+    linkHtml = `<span class="link disabled">– ${h.linkNote} –</span>`;
+  } else {
+    linkHtml = `<span class="link disabled">– kein Link hinterlegt –</span>`;
+  }
+
+  return `
+    <div class="card" data-status="${h.status}">
+      <div class="card-title">${h.address || '<span class="missing">Adresse offen</span>'}</div>
+      ${typeLine}
+      <div class="price ${price ? '' : 'unknown'}">${price || 'Preis offen'}${price ? ppsqm : ''}</div>
+      ${metrics.length ? `<div class="metrics">${metrics.join('')}</div>` : '<div class="metrics"><span class="missing">Flächen / Zimmer offen</span></div>'}
+      ${energyLine}
+      ${basementLine}
+      ${h.contact ? `<div class="field"><span class="field-label">Quelle</span>${h.contact}</div>` : ''}
+      ${missingHint}
+      ${h.notes ? `<div class="notes">${h.notes}</div>` : ''}
+      ${linkHtml}
+    </div>
+  `;
+}
+
+function render() {
+  const stats = document.getElementById('stats');
+  const board = document.getElementById('board');
+  const counts = {};
+  COLUMNS.forEach(c => counts[c.key] = HOUSES.filter(h => h.status === c.key).length);
+  const total = HOUSES.length;
+  stats.innerHTML = `
+    <div class="stat"><div class="stat-num">${total}</div><div class="stat-lbl">Gesamt</div></div>
+    ${COLUMNS.map(c => `<div class="stat"><div class="stat-num">${counts[c.key]}</div><div class="stat-lbl">${c.label}</div></div>`).join('')}
+  `;
+  board.innerHTML = COLUMNS.map(c => {
+    const houses = HOUSES.filter(h => h.status === c.key);
+    return `
+      <div class="col" data-status="${c.key}">
+        <div class="col-header">${c.label}<span class="col-count">${houses.length}</span></div>
+        ${houses.length ? houses.map(renderCard).join('') : '<div class="empty">– keine –</div>'}
+      </div>
+    `;
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>
